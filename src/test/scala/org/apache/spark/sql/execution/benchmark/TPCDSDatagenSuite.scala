@@ -18,6 +18,7 @@
 package org.apache.spark.sql.execution.benchmark
 
 import java.io.{File, FilenameFilter}
+
 import org.apache.spark.SparkFunSuite
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.test.SharedSparkSession
@@ -31,6 +32,7 @@ class TPCDSDatagenSuite extends SparkFunSuite with SharedSparkSession {
       location = outputTempDir.getAbsolutePath,
       format = "parquet",
       overwrite = false,
+      iceberg = false,
       partitionTables = false,
       useDoubleForDecimal = false,
       useStringForChar = false,

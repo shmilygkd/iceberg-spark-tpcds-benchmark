@@ -37,10 +37,10 @@
         <maven.version>3.6.3</maven.version>
         <scala.version>2.12.10</scala.version>
         <scala.binary.version>2.12</scala.binary.version>
-        <spark.version>3.2.1</spark.version>
-        <hadoop.version>3.2.0</hadoop.version>
-        <hadoop.binary.version>3.2</hadoop.binary.version>
-        <snappy-java.version>1.1.8.2</snappy-java.version>
+        <spark.version>3.3.2</spark.version>
+        <hadoop.version>3.1.0</hadoop.version>
+        <hadoop.binary.version>3.1</hadoop.binary.version>
+        <snappy-java.version>1.1.10.4</snappy-java.version>
 
         <test.java.home>${java.home}</test.java.home>
         <test.exclude.tags></test.exclude.tags>
@@ -100,8 +100,8 @@
         </dependency>
         <dependency>
             <groupId>org.apache.iceberg</groupId>
-            <artifactId>iceberg-spark-runtime-3.2_2.12</artifactId>
-            <version>0.13.1</version>
+            <artifactId>iceberg-spark-runtime-3.3_2.12</artifactId>
+            <version>1.6.1</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
@@ -120,7 +120,7 @@
         <dependency>
             <groupId>org.apache.hadoop</groupId>
             <artifactId>hadoop-common</artifactId>
-            <version>3.2.0</version>
+            <version>${hadoop.version}</version>
             <scope>provided</scope>
         </dependency>
 
@@ -331,7 +331,7 @@
                 <version>3.1.2</version>
                 <configuration>
                     <finalName>${project.artifactId}-${project.version}</finalName>
-                    <outputDirectory>${project.parent.build.directory}</outputDirectory>
+                    <outputDirectory>${project.build.directory}</outputDirectory>
                 </configuration>
             </plugin>
             <plugin>

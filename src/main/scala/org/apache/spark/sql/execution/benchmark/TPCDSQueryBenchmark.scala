@@ -1,5 +1,23 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.spark.sql.execution.benchmark
 
+import scala.util.Try
 
 import org.apache.spark.SparkConf
 import org.apache.spark.benchmark.Benchmark
@@ -13,34 +31,23 @@ import org.apache.spark.sql.execution.datasources.LogicalRelation
 import org.apache.spark.sql.execution.datasources.v2.DataSourceV2Relation
 import org.apache.spark.sql.internal.SQLConf
 
-import scala.util.Try
-
 /**
  * Created with IDEA
  * Creater: MOBIN
  * Date: 2022/3/25
- * Time: 3:33 下午
+ * Time: 3:33 pm
  */
 object TPCDSQueryBenchmark extends SqlBasedBenchmark with Logging {
 
   override def getSparkSession: SparkSession = {
-    val conf = new SparkConf()
-      .setMaster(System.getProperty("spark.sql.test.master", "local[1]"))
-      .setAppName("test-sql-context")
-      .set("spark.sql.parquet.compression.codec", "snappy")
-      .set("spark.sql.shuffle.partitions", System.getProperty("spark.sql.shuffle.partitions", "4"))
-      .set("spark.driver.memory", "3g")
-      .set("spark.executor.memory", "3g")
-      .set("spark.sql.autoBroadcastJoinThreshold", (20 * 1024 * 1024).toString)
-      .set("spark.sql.crossJoin.enabled", "true")
-
+    val conf = new SparkConf().setAppName("tpcds-sql-query")
 
     SparkSession.builder.config(conf)
       .config("spark.sql.extensions", "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions")
       .config("spark.sql.catalog.spark_catalog", "org.apache.iceberg.spark.SparkSessionCatalog")
       .config("spark.sql.catalog.spark_catalog.type", "hive")
-      .config("spark.sql.catalog.hadoop_prod", "org.apache.iceberg.spark.SparkCatalog")
-      .config("spark.sql.catalog.hadoop_prod.type", "hadoop")
+      .config("spark.sql.catalog.hadoop_catalog", "org.apache.iceberg.spark.SparkCatalog")
+      .config("spark.sql.catalog.hadoop_catalog.type", "hadoop")
       .getOrCreate()
   }
 
@@ -50,16 +57,23 @@ object TPCDSQueryBenchmark extends SqlBasedBenchmark with Logging {
     "web_returns", "web_site", "reason", "call_center", "warehouse", "ship_mode", "income_band",
     "time_dim", "web_page")
 
-  def setupTables(dataLocation: String, iceberg: Boolean, createTempView: Boolean): Map[String, Long] = {
+  def setupTables(dataLocation: String
+                  , iceberg: Boolean
+                  , createTempView: Boolean): Map[String, Long] = {
     tables.map { tableName =>
       if (createTempView) {
-        val tablePath = s"$dataLocation/$tableName"
         if (iceberg) {
+          // 从Spark配置中获取catalog信息，如果不存在则使用默认值
+          val databaseName = spark.conf
+            .getOption("spark.app.iceberg.database")
+            .getOrElse("tpcds")
+
           val dataFrame = spark.read
-            .option("vectorization-enabled",true)
-            .format("iceberg").load(tablePath)
+            .option("vectorization-enabled", "true")
+            .format("iceberg").load(s"$databaseName.$tableName")
           dataFrame.createOrReplaceTempView(tableName)
         } else {
+          val tablePath = s"$dataLocation/$tableName"
           spark.read.parquet(tablePath).createOrReplaceTempView(tableName)
         }
 
@@ -77,8 +91,7 @@ object TPCDSQueryBenchmark extends SqlBasedBenchmark with Logging {
     }.toMap
   }
 
-  def runTpcdsQueries(
-                       queryLocation: String,
+  def runTpcdsQueries(queryLocation: String,
                        queries: Seq[String],
                        tableSizes: Map[String, Long],
                        nameSuffix: String = ""): Unit = {
@@ -127,6 +140,14 @@ object TPCDSQueryBenchmark extends SqlBasedBenchmark with Logging {
   override def runBenchmarkSuite(mainArgs: Array[String]): Unit = {
     val benchmarkArgs = new TPCDSQueryBenchmarkArguments(mainArgs)
 
+    if (benchmarkArgs.iceberg) {
+      spark.conf.set("spark.sql.catalog.hadoop_catalog.warehouse", benchmarkArgs.dataLocation)
+      spark.conf.set("spark.sql.defaultCatalog", "hadoop_catalog")
+    }
+
+    // set database
+    spark.conf.set("spark.app.iceberg.database", benchmarkArgs.icebergDatabase)
+
     // List of all TPC-DS v1.4 queries
     val tpcdsQueries = Seq(
       "q1", "q2", "q3", "q4", "q5", "q6", "q7", "q8", "q9", "q10", "q11",
@@ -158,7 +179,7 @@ object TPCDSQueryBenchmark extends SqlBasedBenchmark with Logging {
         s"Empty queries to run. Bad query name filter: ${benchmarkArgs.queryFilter}")
     }
 
-    val tableSizes = setupTables(benchmarkArgs.dataLocation,benchmarkArgs.iceberg,
+    val tableSizes = setupTables(benchmarkArgs.dataLocation, benchmarkArgs.iceberg,
       createTempView = !benchmarkArgs.cboEnabled)
     if (benchmarkArgs.cboEnabled) {
       spark.sql(s"SET ${SQLConf.CBO_ENABLED.key}=true")

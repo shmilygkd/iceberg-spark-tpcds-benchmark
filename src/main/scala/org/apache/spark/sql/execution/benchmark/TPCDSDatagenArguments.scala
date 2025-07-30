@@ -34,6 +34,7 @@ class TPCDSDatagenArguments(val args: Array[String]) {
   var tableFilter: Set[String] = Set.empty
   var numPartitions = "100"
   var iceberg = false
+  var icebergDatabase = "tpcds"
 
   parseArgs(args.toList)
   validateArguments()
@@ -61,6 +62,10 @@ class TPCDSDatagenArguments(val args: Array[String]) {
 
         case ("--iceberg") :: tail =>
           iceberg = true
+          args = tail
+
+        case ("--iceberg-database") :: value :: tail =>
+          icebergDatabase = value
           args = tail
 
         case ("--partition-tables") :: tail =>
@@ -108,11 +113,12 @@ class TPCDSDatagenArguments(val args: Array[String]) {
     System.err.println("""
       |Usage: spark-submit --class <this class> --conf key=value <spark tpcds datagen jar> [Options]
       |Options:
-      |  --output-location [STR]                Path to an output location
+      |  --output-location [STR]                Path to an output location (can be HDFS path like hdfs://namenode:port/path)
       |  --scale-factor [NUM]                   Scale factor (default: 1)
       |  --format [STR]                         Output format (default: parquet)
       |  --overwrite                            Whether it overwrites existing data (default: false)
       |  --iceberg                              Whether it generate iceberg data (default: false)
+      |  --iceberg-database [STR]              Iceberg database name (default: tpcds)
       |  --partition-tables                     Whether it partitions output data (default: false)
       |  --use-double-for-decimal               Whether it prefers double types instead of decimal types (default: false)
       |  --use-string-for-char                  Whether it prefers string types instead of char/varchar types (default: false)

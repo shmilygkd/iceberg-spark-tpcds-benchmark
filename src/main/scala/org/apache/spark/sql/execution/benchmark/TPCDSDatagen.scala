@@ -166,6 +166,8 @@ class Tables(sqlContext: SQLContext, scaleFactor: Int) extends Serializable {
               |$predicates
               |DISTRIBUTE BY
               |  $partitionColumnString
+              |SORT BY
+              |  $partitionColumnString
             """.stripMargin
           val grouped = sqlContext.sql(query)
           grouped.write
@@ -223,7 +225,8 @@ class Tables(sqlContext: SQLContext, scaleFactor: Int) extends Serializable {
       clusterByPartitionColumns: Boolean,
       filterOutNullPartitionValues: Boolean,
       tableFilter: Set[String] = Set.empty,
-      numPartitions: Int = 100): Unit = {
+      numPartitions: Int = 100,
+      icebergDatabase: String = "tpcds"): Unit = {
     var tablesToBeGenerated = if (partitionTables) {
       tables
     } else {
@@ -245,7 +248,11 @@ class Tables(sqlContext: SQLContext, scaleFactor: Int) extends Serializable {
     }
 
     withSpecifiedDataType.foreach { table =>
-      val tableLocation = s"$location/${table.name}"
+      val tableLocation = if (iceberg) {
+        s"hadoop_catalog.${icebergDatabase}.${table.name}"
+      } else {
+        s"$location/${table.name}"
+      }
       table.genData(tableLocation, format, overwrite, iceberg, clusterByPartitionColumns,
         filterOutNullPartitionValues, numPartitions)
     }
@@ -814,21 +821,17 @@ object TPCDSDatagen {
      * --conf spark.sql.catalog.hive_prod.warehouse=hdfs:///tmp/iceberg_hivemeta
      */
     val datagenArgs = new TPCDSDatagenArguments(args)
-    val sparkBuilder = SparkSession
-      .builder
+    val sparkBuilder = SparkSession.builder
 
     if (datagenArgs.iceberg) {
       sparkBuilder
         .config("spark.sql.extensions", "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions")
-        .config("spark.sql.catalog.spark_catalog", "org.apache.iceberg.spark.SparkSessionCatalog")
-        .config("spark.sql.catalog.spark_catalog.type", "hive")
-        .config("spark.sql.catalog.hadoop_prod", "org.apache.iceberg.spark.SparkCatalog")
-        .config("spark.sql.catalog.hadoop_prod.type", "hadoop")
-        .config("spark.sql.catalog.hadoop_prod.warehouse", "file:///tmp/iceberg_hadoop_50")
+        .config(s"spark.sql.catalog.hadoop_catalog", "org.apache.iceberg.spark.SparkCatalog")
+        .config(s"spark.sql.catalog.hadoop_catalog.type", "hadoop")
+        .config(s"spark.sql.catalog.hadoop_catalog.warehouse", datagenArgs.outputLocation)
     }
 
-    val sparkSession = sparkBuilder.master("local[2]").getOrCreate()
-
+    val sparkSession = sparkBuilder.getOrCreate()
 
     val tpcdsTables = new Tables(sparkSession.sqlContext, datagenArgs.scaleFactor.toInt)
     tpcdsTables.genData(
@@ -842,7 +845,8 @@ object TPCDSDatagen {
       datagenArgs.clusterByPartitionColumns,
       datagenArgs.filterOutNullPartitionValues,
       datagenArgs.tableFilter,
-      datagenArgs.numPartitions.toInt)
+      datagenArgs.numPartitions.toInt,
+      datagenArgs.icebergDatabase)
     sparkSession.stop()
   }
 }
