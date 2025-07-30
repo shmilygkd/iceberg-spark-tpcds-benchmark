@@ -1,11 +1,11 @@
 This is a TPCDS data generator and queries benchmark for Apache Spark,It also support iceberg data, which is fork from [spark-tpcds-datagen](https://github.com/maropu/spark-tpcds-datagen)
 
-Note that the current `master` branch intends to support [3.2.1](https://downloads.apache.org/spark/spark-3.2.1) on Scala 2.12.x.
+Note that the current `master` branch intends to support [3.3.2](https://downloads.apache.org/spark/spark-3.3.2) on Scala 2.12.x.
 ## How to generate TPCDS data
 
 You can generate TPCDS data in `/tmp/spark-tpcds-data`:
 
-    # You need to set `SPARK_HOME` to your Spark v3.2.1 path before running a command below
+    # You need to set `SPARK_HOME` to your Spark v3.3.2 path before running a command below
     $ ./bin/dsdgen --output-location /tmp/spark-tpcds-data [--iceberg]
 
 ## Options for the generator
@@ -18,6 +18,7 @@ You can generate TPCDS data in `/tmp/spark-tpcds-data`:
       --format [STR]                         Output format (default: parquet)
       --overwrite                            Whether it overwrites existing data (default: false)
       --iceberg                              Whether it generate iceberg data (default: false)
+      --iceberg-database [STR]              Iceberg database name (default: tpcds)
       --partition-tables                     Whether it partitions output data (default: false)
       --use-double-for-decimal               Whether it prefers double types instead of decimal types (default: false)
       --use-string-for-char                  Whether it prefers string types instead of char/varchar types (default: false)
@@ -32,6 +33,7 @@ You can generate TPCDS data in `/tmp/spark-tpcds-data`:
       --query-filter       Queries to filter, e.g., q3,q5,q13
       --cbo                Whether to enable cost-based optimization
       --iceberg            Whether queries iceberg tables
+      --iceberg-database   Iceberg database name (default: tpcds)
 
 ## Run specific TPCDS quries only
 
